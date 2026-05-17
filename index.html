@@ -1,0 +1,370 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+<meta charset="UTF-8" />
+
+<meta
+name="viewport"
+content="width=device-width, initial-scale=1.0"
+/>
+
+<title>AI Chat Bot</title>
+
+<link
+href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap"
+rel="stylesheet"
+/>
+
+<style>
+
+*{
+    margin:0;
+    padding:0;
+    box-sizing:border-box;
+}
+
+body{
+    background:#020617;
+    font-family:'Inter',sans-serif;
+    height:100vh;
+    overflow:hidden;
+}
+
+.app{
+    width:100%;
+    height:100vh;
+    display:flex;
+    flex-direction:column;
+}
+
+.topbar{
+    height:70px;
+    background:#0f172a;
+    border-bottom:1px solid rgba(255,255,255,.08);
+    display:flex;
+    align-items:center;
+    justify-content:space-between;
+    padding:0 20px;
+}
+
+.logo{
+    color:white;
+    font-size:22px;
+    font-weight:800;
+}
+
+.online{
+    color:#22c55e;
+    font-size:14px;
+}
+
+.chat{
+    flex:1;
+    overflow:auto;
+    padding:20px;
+    display:flex;
+    flex-direction:column;
+    gap:16px;
+}
+
+.message{
+    max-width:80%;
+    padding:14px 16px;
+    border-radius:18px;
+    line-height:1.6;
+    word-wrap:break-word;
+    animation:fade .2s ease;
+}
+
+.user{
+    align-self:flex-end;
+    background:#2563eb;
+    color:white;
+    border-bottom-right-radius:5px;
+}
+
+.bot{
+    align-self:flex-start;
+    background:#111827;
+    color:white;
+    border-bottom-left-radius:5px;
+}
+
+.bottom{
+    padding:15px;
+    background:#0f172a;
+    border-top:1px solid rgba(255,255,255,.08);
+    display:flex;
+    gap:10px;
+}
+
+input{
+    flex:1;
+    height:55px;
+    border:none;
+    outline:none;
+    background:#111827;
+    color:white;
+    border-radius:16px;
+    padding:0 18px;
+    font-size:16px;
+}
+
+button{
+    border:none;
+    background:#2563eb;
+    color:white;
+    padding:0 24px;
+    border-radius:16px;
+    font-weight:700;
+    cursor:pointer;
+    transition:.2s;
+}
+
+button:hover{
+    transform:scale(1.03);
+}
+
+.typing{
+    color:#94a3b8;
+    font-size:14px;
+}
+
+::-webkit-scrollbar{
+    width:5px;
+}
+
+::-webkit-scrollbar-thumb{
+    background:#334155;
+    border-radius:999px;
+}
+
+@keyframes fade{
+
+    from{
+        opacity:0;
+        transform:translateY(10px);
+    }
+
+    to{
+        opacity:1;
+        transform:translateY(0);
+    }
+
+}
+
+</style>
+</head>
+<body>
+
+<div class="app">
+
+    <div class="topbar">
+
+        <div class="logo">
+            🤖 AI Chat Bot
+        </div>
+
+        <div class="online">
+            ● Online
+        </div>
+
+    </div>
+
+    <div
+        class="chat"
+        id="chat"
+    ></div>
+
+    <div class="bottom">
+
+        <input
+            id="input"
+            type="text"
+            placeholder="Nhập tin nhắn..."
+        />
+
+        <button id="send">
+            Gửi
+        </button>
+
+    </div>
+
+</div>
+
+<script type="module">
+
+import { initializeApp }
+from "https://www.gstatic.com/firebasejs/12.0.0/firebase-app.js";
+
+import {
+    getFirestore,
+    collection,
+    addDoc,
+    query,
+    orderBy,
+    onSnapshot,
+    limit
+}
+from "https://www.gstatic.com/firebasejs/12.0.0/firebase-firestore.js";
+
+const firebaseConfig = {
+
+  apiKey: "AIzaSyBkRFn4i_tPSFKUMhC_xVWrL2u43gBPLqM",
+
+  authDomain: "vercel-mk.firebaseapp.com",
+
+  databaseURL: "https://vercel-mk-default-rtdb.asia-southeast1.firebasedatabase.app",
+
+  projectId: "vercel-mk",
+
+  storageBucket: "vercel-mk.firebasestorage.app",
+
+  messagingSenderId: "1041836554984",
+
+  appId: "1:1041836554984:web:da8011543b29b8f47ae75d",
+
+  measurementId: "G-8C6ETLKKTK"
+
+};
+
+const app = initializeApp(firebaseConfig);
+
+const db = getFirestore(app);
+
+const chat = document.getElementById("chat");
+
+const input = document.getElementById("input");
+
+const send = document.getElementById("send");
+
+function addMessage(text,type){
+
+    const div = document.createElement("div");
+
+    div.className = `message ${type}`;
+
+    div.innerText = text;
+
+    chat.appendChild(div);
+
+    chat.scrollTop = chat.scrollHeight;
+
+}
+
+const q = query(
+    collection(db,"messages"),
+    orderBy("time"),
+    limit(100)
+);
+
+onSnapshot(q,(snapshot)=>{
+
+    chat.innerHTML = "";
+
+    snapshot.forEach((doc)=>{
+
+        const data = doc.data();
+
+        addMessage(data.text,data.type);
+
+    });
+
+});
+
+async function askAI(message){
+
+    try{
+
+        const response = await fetch(
+            "/api/chat",
+            {
+                method:"POST",
+
+                headers:{
+                    "Content-Type":"application/json"
+                },
+
+                body:JSON.stringify({
+                    message
+                })
+
+            }
+        );
+
+        const data = await response.json();
+
+        if(data.error){
+
+            return "❌ " + data.error;
+
+        }
+
+        return data.choices[0].message.content;
+
+    }catch(err){
+
+        return "😭 " + err.message;
+
+    }
+
+}
+
+async function sendMessage(){
+
+    const message = input.value.trim();
+
+    if(!message) return;
+
+    input.value = "";
+
+    await addDoc(
+        collection(db,"messages"),
+        {
+            text:message,
+            type:"user",
+            time:Date.now()
+        }
+    );
+
+    const typing = document.createElement("div");
+
+    typing.className = "typing";
+
+    typing.innerText = "AI đang suy nghĩ...";
+
+    chat.appendChild(typing);
+
+    chat.scrollTop = chat.scrollHeight;
+
+    const aiReply = await askAI(message);
+
+    typing.remove();
+
+    await addDoc(
+        collection(db,"messages"),
+        {
+            text:aiReply,
+            type:"bot",
+            time:Date.now()
+        }
+    );
+
+}
+
+send.onclick = sendMessage;
+
+input.addEventListener("keydown",(e)=>{
+
+    if(e.key === "Enter"){
+
+        sendMessage();
+
+    }
+
+});
+
+</script>
+
+</body>
+</html>
